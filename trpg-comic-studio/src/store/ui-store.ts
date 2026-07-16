@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
 import type { LayerType } from '../core/types'
 
 // ---- UI state (panels, layout, viewport) ----
@@ -24,18 +25,33 @@ export interface UIState {
   setCanvasPan: (x: number, y: number) => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  isLogPanelOpen: false,
-  activeLayer: 'character',
-  canvasZoom: 1.0,
-  canvasPanX: 0,
-  canvasPanY: 0,
+export const useUIStore = create<UIState>()(
+  immer((set) => ({
+    isLogPanelOpen: false,
+    activeLayer: 'character',
+    canvasZoom: 1.0,
+    canvasPanX: 0,
+    canvasPanY: 0,
 
-  toggleLogPanel: () => set((s) => ({ isLogPanelOpen: !s.isLogPanelOpen })),
+    toggleLogPanel: () =>
+      set((state) => {
+        state.isLogPanelOpen = !state.isLogPanelOpen
+      }),
 
-  setActiveLayer: (layer) => set({ activeLayer: layer }),
+    setActiveLayer: (layer) =>
+      set((state) => {
+        state.activeLayer = layer
+      }),
 
-  setCanvasZoom: (zoom) => set({ canvasZoom: Math.max(0.1, Math.min(5.0, zoom)) }),
+    setCanvasZoom: (zoom) =>
+      set((state) => {
+        state.canvasZoom = Math.max(0.1, Math.min(5.0, zoom))
+      }),
 
-  setCanvasPan: (x, y) => set({ canvasPanX: x, canvasPanY: y }),
-}))
+    setCanvasPan: (x, y) =>
+      set((state) => {
+        state.canvasPanX = x
+        state.canvasPanY = y
+      }),
+  })),
+)

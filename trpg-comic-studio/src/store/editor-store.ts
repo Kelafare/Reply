@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
 import type { Project, Page, LayerType, CanvasItem, EffectTrack } from '../core/types'
 
 // ---- Editor State (the heart of the application) ----
@@ -61,94 +62,100 @@ export interface EditorState {
   setPlaying: (playing: boolean) => void
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
-  project: null,
-  currentPageIndex: 0,
-  activeLayer: 'character',
-  selectedItemId: null,
-  currentTimeMs: 0,
-  isPlaying: false,
+export const useEditorStore = create<EditorState>()(
+  immer((set) => ({
+    project: null,
+    currentPageIndex: 0,
+    activeLayer: 'character',
+    selectedItemId: null,
+    currentTimeMs: 0,
+    isPlaying: false,
 
-  setProject: (project) => set({ project, currentPageIndex: 0, selectedItemId: null }),
+    setProject: (project) =>
+      set((state) => {
+        state.project = project as typeof state.project
+        state.currentPageIndex = 0
+        state.selectedItemId = null
+      }),
 
-  setCurrentPage: (index) => set({ currentPageIndex: index, currentTimeMs: 0 }),
+    setCurrentPage: (index) =>
+      set((state) => {
+        state.currentPageIndex = index
+        state.currentTimeMs = 0
+      }),
 
-  setActiveLayer: (layer) => set({ activeLayer: layer }),
+    setActiveLayer: (layer) =>
+      set((state) => {
+        state.activeLayer = layer
+      }),
 
-  selectItem: (itemId) => set({ selectedItemId: itemId }),
+    selectItem: (itemId) =>
+      set((state) => {
+        state.selectedItemId = itemId
+      }),
 
-  addItem: (pageIndex, layerType, item) =>
-    set((state) => {
-      if (!state.project) return state
-      const pages = [...state.project.pages]
-      const layer = pages[pageIndex].layers[layerType]
-      layer.items = [...layer.items, item]
-      return { project: { ...state.project, pages } }
-    }),
+    addItem: (pageIndex, layerType, item) =>
+      set((state) => {
+        if (!state.project) return
+        state.project.pages[pageIndex].layers[layerType].items.push(item)
+      }),
 
-  updateItemTransform: (pageIndex, layerType, itemId, transform) =>
-    set((state) => {
-      if (!state.project) return state
-      const pages = [...state.project.pages]
-      const items = pages[pageIndex].layers[layerType].items
-      const idx = items.findIndex((i) => i.id === itemId)
-      if (idx === -1) return state
-      items[idx] = { ...items[idx], baseTransform: { ...items[idx].baseTransform, ...transform } }
-      return { project: { ...state.project, pages } }
-    }),
+    updateItemTransform: (pageIndex, layerType, itemId, transform) =>
+      set((state) => {
+        if (!state.project) return
+        const items = state.project.pages[pageIndex].layers[layerType].items
+        const idx = items.findIndex((i) => i.id === itemId)
+        if (idx === -1) return
+        Object.assign(items[idx].baseTransform, transform)
+      }),
 
-  removeItem: (pageIndex, layerType, itemId) =>
-    set((state) => {
-      if (!state.project) return state
-      const pages = [...state.project.pages]
-      const layer = pages[pageIndex].layers[layerType]
-      layer.items = layer.items.filter((i) => i.id !== itemId)
-      return {
-        project: { ...state.project, pages },
-        selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
-      }
-    }),
+    removeItem: (pageIndex, layerType, itemId) =>
+      set((state) => {
+        if (!state.project) return
+        const layer = state.project.pages[pageIndex].layers[layerType]
+        layer.items = layer.items.filter((i) => i.id !== itemId)
+        if (state.selectedItemId === itemId) {
+          state.selectedItemId = null
+        }
+      }),
 
-  addEffectTrack: (pageIndex, layerType, itemId, track) =>
-    set((state) => {
-      if (!state.project) return state
-      const pages = [...state.project.pages]
-      const items = pages[pageIndex].layers[layerType].items
-      const idx = items.findIndex((i) => i.id === itemId)
-      if (idx === -1) return state
-      items[idx] = { ...items[idx], timeline: [...items[idx].timeline, track] }
-      return { project: { ...state.project, pages } }
-    }),
+    addEffectTrack: (pageIndex, layerType, itemId, track) =>
+      set((state) => {
+        if (!state.project) return
+        const items = state.project.pages[pageIndex].layers[layerType].items
+        const idx = items.findIndex((i) => i.id === itemId)
+        if (idx === -1) return
+        items[idx].timeline.push(track)
+      }),
 
-  updateEffectTrack: (pageIndex, layerType, itemId, trackIndex, updates) =>
-    set((state) => {
-      if (!state.project) return state
-      const pages = [...state.project.pages]
-      const items = pages[pageIndex].layers[layerType].items
-      const itemIdx = items.findIndex((i) => i.id === itemId)
-      if (itemIdx === -1) return state
-      const timeline = [...items[itemIdx].timeline]
-      if (trackIndex >= timeline.length) return state
-      timeline[trackIndex] = { ...timeline[trackIndex], ...updates }
-      items[itemIdx] = { ...items[itemIdx], timeline }
-      return { project: { ...state.project, pages } }
-    }),
+    updateEffectTrack: (pageIndex, layerType, itemId, trackIndex, updates) =>
+      set((state) => {
+        if (!state.project) return
+        const items = state.project.pages[pageIndex].layers[layerType].items
+        const itemIdx = items.findIndex((i) => i.id === itemId)
+        if (itemIdx === -1) return
+        const timeline = items[itemIdx].timeline
+        if (trackIndex >= timeline.length) return
+        Object.assign(timeline[trackIndex], updates)
+      }),
 
-  removeEffectTrack: (pageIndex, layerType, itemId, trackIndex) =>
-    set((state) => {
-      if (!state.project) return state
-      const pages = [...state.project.pages]
-      const items = pages[pageIndex].layers[layerType].items
-      const itemIdx = items.findIndex((i) => i.id === itemId)
-      if (itemIdx === -1) return state
-      items[itemIdx] = {
-        ...items[itemIdx],
-        timeline: items[itemIdx].timeline.filter((_, i) => i !== trackIndex),
-      }
-      return { project: { ...state.project, pages } }
-    }),
+    removeEffectTrack: (pageIndex, layerType, itemId, trackIndex) =>
+      set((state) => {
+        if (!state.project) return
+        const items = state.project.pages[pageIndex].layers[layerType].items
+        const itemIdx = items.findIndex((i) => i.id === itemId)
+        if (itemIdx === -1) return
+        items[itemIdx].timeline = items[itemIdx].timeline.filter((_, i) => i !== trackIndex)
+      }),
 
-  setCurrentTime: (timeMs) => set({ currentTimeMs: timeMs }),
+    setCurrentTime: (timeMs) =>
+      set((state) => {
+        state.currentTimeMs = timeMs
+      }),
 
-  setPlaying: (playing) => set({ isPlaying: playing }),
-}))
+    setPlaying: (playing) =>
+      set((state) => {
+        state.isPlaying = playing
+      }),
+  })),
+)

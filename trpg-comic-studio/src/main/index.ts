@@ -1,6 +1,14 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import { registerDialogHandlers } from './ipc-handlers/dialog'
+import { registerFileManagerHandlers } from './ipc-handlers/file-manager'
+import { registerProjectIOHandlers } from './ipc-handlers/project-io'
+
+// Register all IPC handlers on startup
+registerDialogHandlers()
+registerFileManagerHandlers()
+registerProjectIOHandlers()
 
 let mainWindow: BrowserWindow | null = null
 
