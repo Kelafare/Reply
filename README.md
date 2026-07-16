@@ -43,6 +43,119 @@ Reply/
         └── features/        # 编辑器功能模块（时间线、素材库、Log、导出等）
 ```
 
+## 环境要求
+
+| 依赖 | 版本要求 | 说明 |
+|------|----------|------|
+| Node.js | >= 20.x | Electron 43 运行基础 |
+| npm | >= 10.x | 包管理 |
+| Git | 任意 | 版本控制 |
+| OS | Windows 10+ / macOS 12+ / Linux | Electron 支持 |
+| FFmpeg | >= 5.0（可选，导出时需要） | 视频编码 |
+
+## 快速启动
+
+### 1. 克隆 & 安装
+
+```bash
+git clone <repo-url>
+cd Reply/trpg-comic-studio
+npm install
+```
+
+首次 `npm install` 会自动下载 Electron 二进制文件（约 200MB），请耐心等待。
+
+### 2. 启动开发模式
+
+```bash
+npm run dev
+```
+
+这会同时启动两个东西：
+- **Vite Dev Server** — `http://localhost:5173`（渲染进程 HMR 热更新）
+- **Electron 窗口** — TRPG Comic Studio 桌面窗口（主进程）
+
+修改代码后渲染进程会自动刷新，主进程修改需手动重启。
+
+### 3. 构建生产版本
+
+```bash
+npm run build     # 编译到 out/ 目录
+npm run preview   # 预览构建结果
+```
+
+### 4. 运行测试
+
+```bash
+npm test          # 运行所有测试（Vitest）
+npm run test:ui   # 带 UI 界面的测试运行器
+```
+
+## 验证 Phase 2（PixiJS 画布引擎）
+
+启动 `npm run dev` 后，你应在 Electron 窗口中看到：
+
+| 区域 | 预期效果 |
+|------|----------|
+| **顶部工具栏** | 标题 "TRPG Comic Studio" + 图层切换按钮（背景/人物/气泡）+ 👁/🔒 按钮 |
+| **左侧面板** | "素材库" 占位文字 |
+| **中央画布** | 深色背景（#11111b），PixiJS WebGL 画布 |
+| **右侧面板** | 属性面板，无选中时显示"选择对象以编辑属性" |
+| **底部面板** | "时间线" 占位文字 |
+| **视口操作** | Ctrl+滚轮缩放（10%-500%）、空格+拖拽平移、Ctrl+0 重置 |
+| **图层切换** | 点击工具栏按钮切换当前编辑图层 |
+| **可见性/锁定** | 点击 👁 切换图层可见、点击 🔒 切换图层锁定 |
+
+当前画布为空是因为还没有素材导入功能（Phase 8）。画布已就绪，等待后续阶段添加内容。
+
+## 故障排除
+
+### Electron 窗口不出现
+
+1. 确认 Electron 二进制下载完成：
+   ```bash
+   npx electron --version
+   ```
+   应输出 Electron 版本号（如 `v43.1.1`）
+
+2. 如果是首次安装，手动触发 Electron 下载：
+   ```bash
+   node node_modules/electron/install.js
+   ```
+
+3. Linux 用户需要安装系统依赖：
+   ```bash
+   sudo apt-get install -y libnss3 libgbm1 libasound2 libgtk-3-0 libxss1 libxkbcommon0
+   ```
+
+### `npm run dev` 构建成功但 Electron 启动失败
+
+检查构建输出确认三个 bundle 都编译成功（main / preload / renderer）。
+
+如遇 `electron.app` 相关错误，尝试：
+```bash
+# 清理重装
+rm -rf node_modules out
+npm install
+npm run build
+npm run dev
+```
+
+### 测试失败
+
+```bash
+npx vitest run --reporter verbose   # 查看详细输出
+```
+
+### Vite Dev Server 端口冲突
+
+设置环境变量修改端口：
+```bash
+# Windows PowerShell
+$env:ELECTRON_RENDERER_URL="http://localhost:3000"
+npm run dev
+```
+
 ## 开发
 
 ```bash

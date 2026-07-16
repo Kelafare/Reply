@@ -1,14 +1,8 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
-import { is } from '@electron-toolkit/utils'
 import { registerDialogHandlers } from './ipc-handlers/dialog'
 import { registerFileManagerHandlers } from './ipc-handlers/file-manager'
 import { registerProjectIOHandlers } from './ipc-handlers/project-io'
-
-// Register all IPC handlers on startup
-registerDialogHandlers()
-registerFileManagerHandlers()
-registerProjectIOHandlers()
 
 let mainWindow: BrowserWindow | null = null
 
@@ -35,7 +29,7 @@ function createWindow(): void {
   })
 
   // HMR for dev, load file for production
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -43,6 +37,11 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Register IPC handlers — must be inside whenReady so ipcMain is available
+  registerDialogHandlers()
+  registerFileManagerHandlers()
+  registerProjectIOHandlers()
+
   createWindow()
 
   app.on('activate', () => {
