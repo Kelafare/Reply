@@ -7,17 +7,17 @@ import { useUIStore } from '../store/ui-store'
 import type { LayerType } from '../core/types'
 
 /**
- * Root application component.
+ * 应用根组件。
  *
- * Layout structure (top-down, left-right):
+ * 布局结构（上到下、左到右）：
  * ┌────────────────────────────────────────────┐
- * │  Toolbar (top bar)                         │
+ * │  工具栏（顶部）                              │
  * ├──────────┬──────────────────┬──────────────┤
- * │  Asset   │  Canvas Viewport  │  Props       │
- * │  Library │  (PixiJS)        │  Panel       │
+ * │  素材库   │  画布视口          │  属性面板      │
+ * │          │  (PixiJS)        │              │
  * │          │                  │              │
  * ├──────────┴──────────────────┴──────────────┤
- * │  Timeline / Bottom Panel                   │
+ * │  时间线 / 底部面板                           │
  * └────────────────────────────────────────────┘
  */
 const LAYER_OPTIONS: { type: LayerType; label: string }[] = [
@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
 
-  // Toolbar state from stores
+  // 从 Store 读取工具栏状态
   const activeLayer = useUIStore((s) => s.activeLayer)
   const setActiveLayer = useUIStore((s) => s.setActiveLayer)
   const project = useEditorStore((s) => s.project)
@@ -43,13 +43,13 @@ const App: React.FC = () => {
     initializedRef.current = true
 
     initCanvasApp(canvasContainerRef.current).catch((err) => {
-      console.error('Failed to initialize PixiJS:', err)
+      console.error('画布初始化失败：', err)
     })
 
-    // Register viewport controls on the canvas container
+    // 在画布容器上注册视口控制
     registerViewportControls(canvasContainerRef.current)
 
-    // Handle window resize
+    // 监听窗口大小变化
     const handleResize = () => resizeCanvas()
     window.addEventListener('resize', handleResize)
 
@@ -65,11 +65,11 @@ const App: React.FC = () => {
 
   return (
     <div style={styles.root}>
-      {/* Toolbar */}
+      {/* 工具栏 */}
       <div style={styles.toolbar}>
-        <span style={styles.title}>TRPG Comic Studio</span>
+        <span style={styles.title}>TRPG 漫画工作室</span>
 
-        {/* Layer quick-switch buttons */}
+        {/* 图层快速切换按钮 */}
         <div style={styles.toolbarGroup}>
           {LAYER_OPTIONS.map((opt) => (
             <button
@@ -87,13 +87,12 @@ const App: React.FC = () => {
 
         <div style={styles.toolbarSpacer} />
 
-        {/* Layer visibility toggles */}
+        {/* 图层可见性/锁定切换 */}
         {currentPage && LAYER_OPTIONS.map((opt) => {
           const layer = currentPage.layers[opt.type]
           const updateLayer = (updates: Partial<typeof layer>) => {
             const store = useEditorStore.getState()
-            // We use updateItemTransform pattern — for now, directly mutate
-            // Phase 7 will add proper layer action methods
+            // Phase 7 将添加专门的图层操作方法
             if (store.project) {
               const pages = [...store.project.pages]
               const pageIdx = store.currentPageIndex
@@ -126,25 +125,29 @@ const App: React.FC = () => {
         })}
       </div>
 
-      {/* Main content area */}
+      {/* 主内容区域 */}
       <div style={styles.main}>
-        {/* Left: Asset Library */}
+        {/* 左侧：素材库 */}
         <div style={styles.leftPanel}>
           <div style={styles.placeholderText}>素材库</div>
         </div>
 
-        {/* Center: Canvas */}
+        {/* 中央：画布 */}
         <div style={styles.centerArea}>
-          <div style={styles.canvas} ref={canvasContainerRef} id="canvas-container" />
+          <div style={styles.canvas} ref={canvasContainerRef} id="canvas-container">
+            <span id="canvas-error-msg" style={styles.canvasError}>
+              画布初始化失败，请检查 WebGL 支持
+            </span>
+          </div>
         </div>
 
-        {/* Right: Properties Panel */}
+        {/* 右侧：属性面板 */}
         <div style={styles.rightPanel}>
           <PropertyPanel />
         </div>
       </div>
 
-      {/* Bottom: Timeline */}
+      {/* 底部：时间线 */}
       <div style={styles.bottomPanel}>
         <div style={styles.placeholderText}>时间线</div>
       </div>
@@ -194,11 +197,23 @@ const styles: Record<string, React.CSSProperties> = {
   centerArea: {
     flex: 1,
     display: 'flex',
+    position: 'relative',
     backgroundColor: '#11111b',
   },
   canvas: {
-    width: '100%',
-    height: '100%',
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: '#11111b',
+  },
+  canvasError: {
+    display: 'none',
+    position: 'absolute',
+    inset: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#f38ba8',
+    fontSize: 14,
+    backgroundColor: '#11111b',
   },
   rightPanel: {
     width: 260,

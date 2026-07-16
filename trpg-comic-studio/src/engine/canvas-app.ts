@@ -5,69 +5,108 @@ import { initItemInteraction } from './item-interaction'
 let app: Application | null = null
 let _stageContainer: Container | null = null
 
+/** 递增的初始化序号，用于防止 Strict Mode 双重挂载导致的竞态 */
+let initId = 0
+
 /**
- * Initialize the PixiJS Application and mount it to the given DOM container.
- * Returns the Application instance.
+ * 初始化 PixiJS Application 并挂载到指定 DOM 容器。
+ * 返回 Application 实例。
  */
 export async function initCanvasApp(container: HTMLElement): Promise<Application> {
+  const myInitId = ++initId
+
+  // 销毁旧实例（如果有）
   if (app) {
-    console.warn('[canvas-app] PixiJS Application already initialized, destroying old instance')
+    console.warn('[画布应用] 旧实例存在，先销毁')
     destroyCanvasApp()
   }
 
-  app = new Application()
+  // 确保容器有非零尺寸，否则使用兜底值
+  const width = container.clientWidth || 800
+  const height = container.clientHeight || 600
 
-  await app.init({
-    resizeTo: container,
-    background: 0x11111b,
-    antialias: true,
-    resolution: window.devicePixelRatio || 1,
-    autoDensity: true,
-  })
+  if (container.clientWidth === 0 || container.clientHeight === 0) {
+    console.warn(`[画布应用] 容器尺寸为零，使用兜底尺寸：${width}×${height}`)
+  }
 
+  const newApp = new Application()
+
+  try {
+    await newApp.init({
+      width,
+      height,
+      background: 0x11111b,
+      antialias: true,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+    })
+  } catch (err) {
+    console.error('[画布应用] 初始化失败：', err)
+    // 显示视觉错误提示
+    container.style.backgroundColor = '#11111b'
+    const errorEl = container.querySelector('#canvas-error-msg') as HTMLElement | null
+    if (errorEl) {
+      errorEl.style.display = 'flex'
+    }
+    throw err
+  }
+
+  // 如果初始化期间有更新的调用启动，丢弃当前结果
+  if (myInitId !== initId) {
+    newApp.destroy(true, { children: true, texture: true })
+    console.log('[画布应用] 初始化被取消（已有新实例接管）')
+    if (!app) {
+      throw new Error('初始化被取消且无有效实例')
+    }
+    return app
+  }
+
+  app = newApp
   container.appendChild(app.canvas)
 
-  // Stage container wrapper for layer grouping
+  console.log(`[画布应用] 画布初始化成功：${width}×${height}`)
+
+  // 创建舞台根容器用于图层分组
   _stageContainer = new Container()
   _stageContainer.label = 'stage-root'
   app.stage.addChild(_stageContainer)
 
-  // Wire up layer renderer and interaction
+  // 连接图层渲染器和交互系统
   setLayerRendererApp(app)
   createLayerContainers()
   startStoreSubscription()
   initItemInteraction()
 
-  // Handle WebGL context loss
+  // 处理 WebGL 上下文丢失
   const canvas = app.canvas as HTMLCanvasElement
   canvas.addEventListener('webglcontextlost', (event) => {
-    console.warn('[canvas-app] WebGL context lost', event)
+    console.warn('[画布应用] WebGL 上下文丢失', event)
   })
 
   canvas.addEventListener('webglcontextrestored', () => {
-    console.log('[canvas-app] WebGL context restored, re-render triggered')
+    console.log('[画布应用] WebGL 上下文已恢复，重新渲染')
   })
 
   return app
 }
 
 /**
- * Get the current PixiJS Application instance (may be null if not initialized).
+ * 获取当前 PixiJS Application 实例（未初始化时返回 null）。
  */
 export function getCanvasApp(): Application | null {
   return app
 }
 
 /**
- * Get the root stage container for layer grouping.
+ * 获取舞台根容器，用于图层分组。
  */
 export function getStageContainer(): Container | null {
   return _stageContainer
 }
 
 /**
- * Resize the PixiJS renderer to match the container dimensions.
- * Called on window resize.
+ * 调整 PixiJS 渲染器尺寸以匹配容器尺寸。
+ * 在窗口大小变化时调用。
  */
 export function resizeCanvas(): void {
   if (!app) return
@@ -78,21 +117,22 @@ export function resizeCanvas(): void {
 }
 
 /**
- * Destroy the PixiJS Application, releasing the WebGL context and removing the canvas.
+ * 销毁 PixiJS Application，释放 WebGL 上下文并移除 canvas 元素。
  */
 export function destroyCanvasApp(): void {
   if (app) {
-    // Remove canvas from DOM
+    // 从 DOM 中移除 canvas
     const canvas = app.canvas as HTMLCanvasElement
     if (canvas.parentElement) {
       canvas.parentElement.removeChild(canvas)
     }
 
-    // Destroy all stage children recursively
+    // 递归销毁所有舞台子元素
     app.stage.removeFromParent()
     app.destroy(true, { children: true, texture: true })
-
-    app = null
-    _stageContainer = null
   }
+
+  // 始终重置状态（即使 app 为 null，确保清理干净）
+  app = null
+  _stageContainer = null
 }

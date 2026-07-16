@@ -3,40 +3,43 @@ import { getStageContainer } from './canvas-app'
 import { getLayerContainer } from './layer-renderer'
 import { useEditorStore } from '../store/editor-store'
 
-// ---- Types ----
+// ---- 类型 ----
 
+/** 交互手柄定义 */
 interface HandleDef {
   id: string
   type: 'corner' | 'edge' | 'rotate'
-  /** Relative position to the item (0..1) */
+  /** 相对于元素的归一化位置（0..1） */
   relX: number
   relY: number
   cursor: string
 }
 
+/** 八个缩放手柄 + 一个旋转手柄 */
 const HANDLES: HandleDef[] = [
-  // Corners
+  // 四角
   { id: 'tl', type: 'corner', relX: 0, relY: 0, cursor: 'nwse-resize' },
   { id: 'tr', type: 'corner', relX: 1, relY: 0, cursor: 'nesw-resize' },
   { id: 'bl', type: 'corner', relX: 0, relY: 1, cursor: 'nesw-resize' },
   { id: 'br', type: 'corner', relX: 1, relY: 1, cursor: 'nwse-resize' },
-  // Edge midpoints
+  // 四边中点
   { id: 'mt', type: 'edge', relX: 0.5, relY: 0, cursor: 'ns-resize' },
   { id: 'mb', type: 'edge', relX: 0.5, relY: 1, cursor: 'ns-resize' },
   { id: 'ml', type: 'edge', relX: 0, relY: 0.5, cursor: 'ew-resize' },
   { id: 'mr', type: 'edge', relX: 1, relY: 0.5, cursor: 'ew-resize' },
-  // Rotation
+  // 旋转手柄（顶部居中偏上）
   { id: 'rot', type: 'rotate', relX: 0.5, relY: -0.15, cursor: 'grab' },
 ]
 
 const HANDLE_SIZE = 10
 const HANDLE_HALF = HANDLE_SIZE / 2
 
-// ---- State ----
+// ---- 状态 ----
 
 let highlightGraphics: Graphics | null = null
 let handleGraphics: Map<string, Graphics> = new Map()
 
+/** 拖拽状态机 */
 let dragState: {
   type: 'move' | 'resize' | 'rotate' | null
   itemId: string | null
@@ -53,28 +56,28 @@ let dragState: {
   startTransform: { x: 0, y: 0, width: 0, height: 0, rotation: 0 },
 }
 
-// ---- Init ----
+// ---- 初始化 ----
 
 /**
- * Initialize item interaction on all layer containers.
+ * 在所有图层容器上初始化元素交互。
  */
 export function initItemInteraction(): void {
   const charLayer = getLayerContainer('character')
   const bubbleLayer = getLayerContainer('bubble')
 
   if (!charLayer || !bubbleLayer) {
-    console.warn('[item-interaction] Layer containers not ready, will retry on first sync')
+    console.warn('[元素交互] 图层容器未就绪，将在首次同步时重试')
     return
   }
 
-  // Listen for pointerdown on layer containers (event delegation)
+  // 在图层容器上监听 pointerdown（事件委托）
   charLayer.eventMode = 'static'
   charLayer.on('pointerdown', onLayerPointerDown)
 
   bubbleLayer.eventMode = 'static'
   bubbleLayer.on('pointerdown', onLayerPointerDown)
 
-  // Create highlight overlay on stage
+  // 在舞台上创建选中高亮覆盖层
   const stage = getStageContainer()
   if (stage && !highlightGraphics) {
     highlightGraphics = new Graphics()
@@ -82,7 +85,7 @@ export function initItemInteraction(): void {
     stage.addChild(highlightGraphics)
   }
 
-  // Listen to store for selection changes
+  // 监听 Store 中的选中变化
   useEditorStore.subscribe((state, prevState) => {
     if (state.selectedItemId !== prevState.selectedItemId) {
       updateHighlight()
@@ -90,10 +93,10 @@ export function initItemInteraction(): void {
   })
 }
 
-// ---- Selection Highlight ----
+// ---- 选中高亮 ----
 
 /**
- * Convert screen coordinates to world coordinates accounting for stage transform.
+ * 将屏幕坐标转换为世界坐标（考虑舞台的缩放和平移）。
  */
 function screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
   const stage = getStageContainer()
@@ -106,12 +109,12 @@ function screenToWorld(screenX: number, screenY: number): { x: number; y: number
 }
 
 /**
- * Find the topmost sprite at a given screen position within a layer container.
+ * 在图层容器内查找给定屏幕位置最上层的 Sprite。
  */
 function hitTestSprite(container: Container, screenX: number, screenY: number): Sprite | null {
   const world = screenToWorld(screenX, screenY)
 
-  // Iterate children from top to bottom
+  // 从上层向下遍历
   for (let i = container.children.length - 1; i >= 0; i--) {
     const child = container.children[i]
     if (!(child instanceof Sprite)) continue
@@ -131,18 +134,18 @@ function hitTestSprite(container: Container, screenX: number, screenY: number): 
 }
 
 /**
- * Handle pointerdown on a layer container (event delegation).
+ * 处理图层容器上的 pointerdown 事件（事件委托模式）。
  */
 function onLayerPointerDown(event: FederatedPointerEvent): void {
   const container = event.currentTarget as Container
   const screenX = event.globalX
   const screenY = event.globalY
 
-  // Hit test items in this container
+  // 在该容器内做命中检测
   const hit = hitTestSprite(container, screenX, screenY)
 
   if (hit) {
-    // Check if we hit a handle in the currently selected item
+    // 检查是否命中了当前选中元素的手柄
     if (hit.label === useEditorStore.getState().selectedItemId) {
       const handleId = hitTestHandle(screenX, screenY, hit)
       if (handleId) {
@@ -151,18 +154,18 @@ function onLayerPointerDown(event: FederatedPointerEvent): void {
       }
     }
 
-    // Select the item
+    // 选中该元素
     useEditorStore.getState().selectItem(hit.label)
     startMoveDrag(hit, event)
     return
   }
 
-  // Clicked empty area → deselect
+  // 点击空白区域 → 取消选中
   useEditorStore.getState().selectItem(null)
 }
 
 /**
- * Start a move drag operation.
+ * 开始移动拖拽。
  */
 function startMoveDrag(sprite: Sprite, event: FederatedPointerEvent): void {
   const item = findItemById(sprite.label)
@@ -189,7 +192,7 @@ function startMoveDrag(sprite: Sprite, event: FederatedPointerEvent): void {
 }
 
 /**
- * Start a handle drag operation.
+ * 开始手柄拖拽。
  */
 function startHandleDrag(handleId: string, sprite: Sprite, event: FederatedPointerEvent): void {
   const item = findItemById(sprite.label)
@@ -219,7 +222,7 @@ function startHandleDrag(handleId: string, sprite: Sprite, event: FederatedPoint
 }
 
 /**
- * Handle pointer move during drag.
+ * 处理拖拽过程中的指针移动。
  */
 function onDragMove(event: FederatedPointerEvent): void {
   if (!dragState.type || !dragState.itemId) return
@@ -235,11 +238,11 @@ function onDragMove(event: FederatedPointerEvent): void {
     const newX = dragState.startTransform.x + dx
     const newY = dragState.startTransform.y + dy
 
-    // Update sprite position (visual feedback)
+    // 更新 Sprite 位置（视觉反馈）
     sprite.x = newX
     sprite.y = newY
 
-    // Store the pending position
+    // 暂存待提交的位置
     _pendingTransform = { x: newX, y: newY }
   }
 
@@ -247,9 +250,8 @@ function onDragMove(event: FederatedPointerEvent): void {
     const sprite = findSpriteById(dragState.itemId)
     if (!sprite) return
 
-    const scaleFactor = 1 // Can be adjusted for precision
-    const newWidth = Math.max(10, dragState.startTransform.width + dx * scaleFactor)
-    const newHeight = Math.max(10, dragState.startTransform.height + dy * scaleFactor)
+    const newWidth = Math.max(10, dragState.startTransform.width + dx)
+    const newHeight = Math.max(10, dragState.startTransform.height + dy)
 
     sprite.width = newWidth
     sprite.height = newHeight
@@ -284,10 +286,11 @@ function onDragMove(event: FederatedPointerEvent): void {
   updateHighlight()
 }
 
+/** 待提交的变换数据 */
 let _pendingTransform: Record<string, number> = {}
 
 /**
- * Handle pointer up — commit the transform to the Store.
+ * 处理指针释放——将变换提交到 Store。
  */
 function onDragEnd(): void {
   const stage = getStageContainer()
@@ -302,7 +305,7 @@ function onDragEnd(): void {
     const project = state.project
     if (!project) return
 
-    // Find page and layer containing this item
+    // 查找包含此元素的页面和图层
     const pageIndex = state.currentPageIndex
     for (const layerType of ['background', 'character', 'bubble'] as const) {
       const items = project.pages[pageIndex].layers[layerType].items
@@ -319,13 +322,14 @@ function onDragEnd(): void {
   _pendingTransform = {}
 }
 
-// ---- Handle Hit Testing ----
+// ---- 手柄命中检测 ----
 
+/** 检测给定屏幕位置是否命中某个手柄 */
 function hitTestHandle(screenX: number, screenY: number, sprite: Sprite): string | null {
   const world = screenToWorld(screenX, screenY)
 
   for (const handle of HANDLES) {
-    // Handle center position in world space
+    // 手柄在世界空间中的中心位置
     const hx = sprite.x + handle.relX * sprite.width
     const hy = sprite.y + handle.relY * sprite.height
 
@@ -342,8 +346,9 @@ function hitTestHandle(screenX: number, screenY: number, sprite: Sprite): string
   return null
 }
 
-// ---- Highlight Rendering ----
+// ---- 高亮渲染 ----
 
+/** 更新选中高亮和手柄图形 */
 function updateHighlight(): void {
   if (!highlightGraphics) return
 
@@ -351,7 +356,6 @@ function updateHighlight(): void {
 
   const selectedId = useEditorStore.getState().selectedItemId
   if (!selectedId) {
-    // Also clear handles
     clearHandles()
     return
   }
@@ -362,20 +366,20 @@ function updateHighlight(): void {
     return
   }
 
-  // Draw dashed selection border
+  // 绘制蓝色选中边框
   const x = sprite.x
   const y = sprite.y
   const w = sprite.width
   const h = sprite.height
 
-  // Blue selection border
   highlightGraphics.rect(x, y, w, h)
   highlightGraphics.stroke({ width: 2, color: 0x4a9eff, alpha: 0.9 })
 
-  // Draw handles
+  // 绘制交互手柄
   drawHandles(x, y, w, h)
 }
 
+/** 绘制选中元素的交互手柄 */
 function drawHandles(x: number, y: number, w: number, h: number): void {
   clearHandles()
 
@@ -385,12 +389,12 @@ function drawHandles(x: number, y: number, w: number, h: number): void {
     const hy = y + handle.relY * h
 
     if (handle.type === 'rotate') {
-      // Circle handle
+      // 圆形旋转手柄
       g.circle(hx, hy, HANDLE_HALF + 2)
       g.fill({ color: 0x4a9eff, alpha: 0.8 })
       g.stroke({ width: 1, color: 0xffffff })
     } else {
-      // Square handle
+      // 方形缩放手柄
       g.rect(hx - HANDLE_HALF, hy - HANDLE_HALF, HANDLE_SIZE, HANDLE_SIZE)
       g.fill({ color: 0xffffff, alpha: 0.9 })
       g.stroke({ width: 1, color: 0x4a9eff })
@@ -405,6 +409,7 @@ function drawHandles(x: number, y: number, w: number, h: number): void {
   }
 }
 
+/** 清除所有手柄图形 */
 function clearHandles(): void {
   for (const g of handleGraphics.values()) {
     g.destroy()
@@ -412,8 +417,9 @@ function clearHandles(): void {
   handleGraphics.clear()
 }
 
-// ---- Helpers ----
+// ---- 辅助函数 ----
 
+/** 根据 ID 在 Store 中查找 CanvasItem */
 function findItemById(itemId: string) {
   const state = useEditorStore.getState()
   const project = state.project
@@ -427,6 +433,7 @@ function findItemById(itemId: string) {
   return null
 }
 
+/** 在所有图层中查找指定 ID 的 Sprite */
 function findSpriteById(itemId: string): Sprite | null {
   for (const layerType of ['background', 'character', 'bubble']) {
     const container = getLayerContainer(layerType)

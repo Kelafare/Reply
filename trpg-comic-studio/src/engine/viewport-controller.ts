@@ -1,28 +1,28 @@
 import { getStageContainer } from './canvas-app'
 import { useUIStore } from '../store/ui-store'
 
-// ---- State ----
+// ---- 状态 ----
 
 let isPanning = false
 let isSpaceHeld = false
 let panStart = { x: 0, y: 0 }
 let stagePosAtPanStart = { x: 0, y: 0 }
 
-// ---- Public API ----
+// ---- 公开 API ----
 
 /**
- * Register viewport control event listeners on the canvas view.
- * Must be called after initCanvasApp.
+ * 在画布视图上注册视口控制事件监听。
+ * 必须在 initCanvasApp 之后调用。
  */
 export function registerViewportControls(view: HTMLElement): void {
-  // Wheel zoom (Ctrl+Wheel)
+  // 滚轮缩放（Ctrl+滚轮）
   view.addEventListener('wheel', handleWheel, { passive: false })
 
-  // Keyboard: Space for pan mode
+  // 键盘：空格进入平移模式
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
 
-  // Pan via pointer events on the view
+  // 在视图上的指针平移事件
   view.addEventListener('pointerdown', handlePointerDown)
   view.addEventListener('pointermove', handlePointerMove)
   view.addEventListener('pointerup', handlePointerUp)
@@ -30,7 +30,7 @@ export function registerViewportControls(view: HTMLElement): void {
 }
 
 /**
- * Unregister viewport event listeners.
+ * 注销视口事件监听。
  */
 export function unregisterViewportControls(view: HTMLElement): void {
   view.removeEventListener('wheel', handleWheel)
@@ -43,7 +43,7 @@ export function unregisterViewportControls(view: HTMLElement): void {
 }
 
 /**
- * Reset the viewport to default (scale 1.0, centered).
+ * 重置视口到默认状态（缩放 1.0，居中）。
  */
 export function resetViewport(): void {
   const stage = getStageContainer()
@@ -52,16 +52,17 @@ export function resetViewport(): void {
   stage.scale.set(1.0)
   stage.position.set(0, 0)
 
-  // Sync to UI Store
+  // 同步到 UI Store
   const uiStore = useUIStore.getState()
   uiStore.setCanvasZoom(1.0)
   uiStore.setCanvasPan(0, 0)
 }
 
-// ---- Event Handlers ----
+// ---- 事件处理 ----
 
+/** 处理滚轮缩放（Ctrl+滚轮） */
 function handleWheel(event: WheelEvent): void {
-  // Only zoom with Ctrl held
+  // 仅 Ctrl 按下时缩放
   if (!event.ctrlKey && !event.metaKey) return
 
   event.preventDefault()
@@ -73,14 +74,14 @@ function handleWheel(event: WheelEvent): void {
   const factor = direction > 0 ? 1.1 : 0.9
   const newZoom = Math.max(0.1, Math.min(5.0, stage.scale.x * factor))
 
-  // Get mouse position relative to the view
+  // 获取鼠标相对于视图的位置
   const rect = (event.currentTarget as HTMLElement)?.getBoundingClientRect()
   if (!rect) return
 
   const mouseX = event.clientX - rect.left
   const mouseY = event.clientY - rect.top
 
-  // Calculate new position to zoom centered on cursor
+  // 计算以光标为中心的新位置
   const worldPos = {
     x: (mouseX - stage.position.x) / stage.scale.x,
     y: (mouseY - stage.position.y) / stage.scale.y,
@@ -93,26 +94,28 @@ function handleWheel(event: WheelEvent): void {
     mouseY - worldPos.y * newZoom,
   )
 
-  // Sync to UI Store
+  // 同步到 UI Store
   const uiStore = useUIStore.getState()
   uiStore.setCanvasZoom(newZoom)
   uiStore.setCanvasPan(stage.position.x, stage.position.y)
 }
 
+/** 处理键盘按下 */
 function handleKeyDown(event: KeyboardEvent): void {
-  // Space for pan mode
+  // 空格进入平移模式
   if (event.code === 'Space' && !event.repeat) {
     event.preventDefault()
     isSpaceHeld = true
   }
 
-  // Ctrl+0 to reset viewport
+  // Ctrl+0 重置视口
   if ((event.ctrlKey || event.metaKey) && event.code === 'Digit0') {
     event.preventDefault()
     resetViewport()
   }
 }
 
+/** 处理键盘释放 */
 function handleKeyUp(event: KeyboardEvent): void {
   if (event.code === 'Space') {
     isSpaceHeld = false
@@ -122,6 +125,7 @@ function handleKeyUp(event: KeyboardEvent): void {
   }
 }
 
+/** 处理指针按下——开始平移 */
 function handlePointerDown(event: PointerEvent): void {
   if (!isSpaceHeld) return
 
@@ -132,7 +136,7 @@ function handlePointerDown(event: PointerEvent): void {
   panStart = { x: event.clientX, y: event.clientY }
   stagePosAtPanStart = { x: stage.position.x, y: stage.position.y }
 
-  // Set cursor
+  // 设置抓取光标
   const view = event.currentTarget as HTMLElement
   if (view) {
     view.style.cursor = 'grabbing'
@@ -141,9 +145,10 @@ function handlePointerDown(event: PointerEvent): void {
   event.preventDefault()
 }
 
+/** 处理指针移动——执行平移 */
 function handlePointerMove(event: PointerEvent): void {
   if (!isPanning) {
-    // Update cursor based on Space state
+    // 根据空格状态更新光标
     if (isSpaceHeld) {
       const view = event.currentTarget as HTMLElement
       if (view) {
@@ -164,26 +169,19 @@ function handlePointerMove(event: PointerEvent): void {
     stagePosAtPanStart.y + dy,
   )
 
-  // Sync to UI Store
+  // 同步到 UI Store
   const uiStore = useUIStore.getState()
   uiStore.setCanvasPan(stage.position.x, stage.position.y)
 }
 
-function handlePointerUp(event: PointerEvent): void {
+/** 处理指针释放——结束平移 */
+function handlePointerUp(_event: PointerEvent): void {
   if (isPanning) {
     endPan()
   }
 }
 
+/** 结束平移操作 */
 function endPan(): void {
   isPanning = false
-
-  // Restore default cursor (Space may still be held)
-  if (!isSpaceHeld) {
-    // Find the view element and reset cursor
-    const stage = getStageContainer()
-    if (stage && stage.parent) {
-      // The canvas element is owned by the Application
-    }
-  }
 }

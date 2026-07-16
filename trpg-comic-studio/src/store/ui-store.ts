@@ -2,23 +2,23 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { LayerType } from '../core/types'
 
-// ---- UI state (panels, layout, viewport) ----
+// ---- UI 状态（面板、布局、视口） ----
 
 export interface UIState {
-  /** Whether the Log panel is open (right side 30% split) */
+  /** Log 面板是否打开（右侧 30% 分屏） */
   isLogPanelOpen: boolean
 
-  /** Currently active layer tab in the toolbar */
+  /** 工具栏中当前活动图层标签 */
   activeLayer: LayerType
 
-  /** Canvas zoom level (1.0 = 100%) */
+  /** 画布缩放级别（1.0 = 100%） */
   canvasZoom: number
 
-  /** Canvas pan offset */
+  /** 画布平移偏移量 */
   canvasPanX: number
   canvasPanY: number
 
-  // Actions
+  // 操作
   toggleLogPanel: () => void
   setActiveLayer: (layer: LayerType) => void
   setCanvasZoom: (zoom: number) => void

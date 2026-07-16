@@ -2,28 +2,28 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { Project, Page, LayerType, CanvasItem, EffectTrack } from '../core/types'
 
-// ---- Editor State (the heart of the application) ----
+// ---- 编辑器状态（应用的核心） ----
 
 export interface EditorState {
-  /** Currently loaded project. null if no project open. */
+  /** 当前加载的项目。null 表示没有打开项目。 */
   project: Project | null
 
-  /** Currently active page index */
+  /** 当前活动页面索引 */
   currentPageIndex: number
 
-  /** Currently active layer for new item placement */
+  /** 当前用于新建元素的活动图层 */
   activeLayer: LayerType
 
-  /** Selected item ID on the canvas */
+  /** 画布上选中的元素 ID */
   selectedItemId: string | null
 
-  /** Current playback time in ms (relative to page start) */
+  /** 当前播放时间（毫秒，相对于页面起始） */
   currentTimeMs: number
 
-  /** Is the preview currently playing? */
+  /** 预览是否正在播放 */
   isPlaying: boolean
 
-  // Actions
+  // 操作
   setProject: (project: Project) => void
   setCurrentPage: (index: number) => void
   setActiveLayer: (layer: LayerType) => void
